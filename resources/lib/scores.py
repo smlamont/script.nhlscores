@@ -458,10 +458,10 @@ class Scores:
 
     def monitor_waitForAbort(self, seconds):
         if (self.test):
-            time.sleep(self.wait)
+            time.sleep(seconds)
             return
         else:
-            return self.monitor.waitForAbort(self.wait)        
+            return self.monitor.waitForAbort(seconds)        
 
     def logger(self, msg):
         xbmc.log(f"[script.nhlscores] {msg}", self.loglevel)
