@@ -37,7 +37,7 @@ def is_between(now, start, end):
 
 class Scores:
 
-    def __init__(self, debug):
+    def __init__(self, debugflg):
         self.addon = xbmcaddon.Addon()
         self.addon_path = xbmcvfs.translatePath(self.addon.getAddonInfo('path'))
         self.local_string = self.addon.getLocalizedString
@@ -92,7 +92,7 @@ class Scores:
         self.delayy_milliseconds = self.delay_seconds * 1000
         self.dialog = xbmcgui.Dialog()
         self.monitor = xbmc.Monitor()
-        self.test = debug
+        self.test = debugflg
         # WHhy is this 25 minutes, Do I need it
         self.DAILY_CHECK_TIMER_PERIOD = 1500 #25 minutes
         self.MAX_SLEEP_TIME = 10800 #3 h0urs
@@ -108,7 +108,12 @@ class Scores:
         self.addon.setSetting(id='score_updates', value='false')
 
       
-        while not self.monitor_waitForAbort(self.init_wait):
+        #see if I can wrap this for bdebug purposes. this is different than wait
+        #while not self.monitor.abortRequested():
+        while not self.monitor_AbortRequested():
+            if self.monitor.waitForAbort(1):
+                print('BREAK FOR ABORT')
+                break
         ##-while 1:
             
             # waiting every 25 minutes, then if time is between 3 and 4 AM, turn on processing I guess looking to ensure games wchedule is up to date
@@ -331,8 +336,9 @@ class Scores:
         # Check if any games are scheduled for today.
         # If so, check if any are live and if not sleep until first game starts
         sleep_seconds = 0
+        seconds_to_start = 1500
         json = self.get_scoreboard()
-        if len(json['games']) == 0:
+        if 'games' not in json:
             self.toggle_service_off()
             self.notify(self.local_string(30300), self.local_string(30352))
         else:
@@ -342,7 +348,7 @@ class Scores:
                     live_games = True
                     break
 
-            seconds_to_start = 0
+            
             game = json['games'][0]
             if not live_games:
                 # date found in stream is UTC
@@ -383,7 +389,7 @@ class Scores:
         else:
             #url = self.api_url % self.local_to_pacific()
             url = self.api_url % datetime.datetime.now().strftime('%Y-%m-%d')
-            
+        #self.logger(f"{url}")
         try:    
             headers = {'User-Agent': self.ua_ipad}
             r = requests.get(url, headers=headers)
@@ -572,10 +578,19 @@ class Scores:
 
     def monitor_waitForAbort(self, seconds):
         if (self.test):
+            #xbmc.log(f"[script.nhlscores] self test", self.loglevel)
             time.sleep(seconds)
             return
         else:
-            return self.monitor.waitForAbort(seconds)        
+            #xbmc.log(f"[script.nhlscores] self test is off", self.loglevel)
+            return self.monitor.waitForAbort(seconds)    
+
+    def monitor_AbortRequested(self):
+        if (self.test):
+            return 1
+        else:
+            xbmc.log(f"[script.nhlscores] waiting for abort", self.loglevel)
+            self.monitor.abortRequested()           
 
     def logger(self, msg):
         xbmc.log(f"[script.nhlscores] {msg}", self.loglevel)
