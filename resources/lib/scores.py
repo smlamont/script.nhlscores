@@ -39,7 +39,40 @@ class Scores:
         self.local_string = self.addon.getLocalizedString
         self.ua_ipad = 'Mozilla/5.0 (iPad; CPU OS 8_4 like Mac OS X) AppleWebKit/600.1.4 (KHTML, like Gecko) Mobile/12H143 ipad nhl 5.0925'
         self.nhl_logo = os.path.join(self.addon_path,'resources','nhl_logo.png')
-        self.api_url = 'http://statsapi.web.nhl.com/api/v1/schedule?date=%s&expand=schedule.teams,schedule.linescore,schedule.scoringplays'
+        self.logo = {};
+        self.logo['ARI']  = os.path.join(self.addon_path,'resources','ARI.png')
+        self.logo['ANA']  = os.path.join(self.addon_path,'resources','ANA.png')
+        self.logo['BOS']  = os.path.join(self.addon_path,'resources','BOS.png')
+        self.logo['BUF']  = os.path.join(self.addon_path,'resources','BUF.png')
+        self.logo['CAR']  = os.path.join(self.addon_path,'resources','CAR.png')
+        self.logo['CGY']  = os.path.join(self.addon_path,'resources','CGY.png')
+        self.logo['CBJ']  = os.path.join(self.addon_path,'resources','CBJ.png')
+        self.logo['CHI']  = os.path.join(self.addon_path,'resources','CHI.png')
+        self.logo['COL']  = os.path.join(self.addon_path,'resources','COL.png')
+        self.logo['DAL']  = os.path.join(self.addon_path,'resources','DAL.png')
+        self.logo['DET']  = os.path.join(self.addon_path,'resources','DET.png')
+        self.logo['EDM']  = os.path.join(self.addon_path,'resources','EDM.png')
+        self.logo['FLA']  = os.path.join(self.addon_path,'resources','FLA.png')
+        self.logo['LAK']  = os.path.join(self.addon_path,'resources','LAK.png')
+        self.logo['MIN']  = os.path.join(self.addon_path,'resources','MIN.png')
+        self.logo['MTL']  = os.path.join(self.addon_path,'resources','MTL.png')
+        self.logo['NSH']  = os.path.join(self.addon_path,'resources','NSH.png')
+        self.logo['NJD']  = os.path.join(self.addon_path,'resources','NJD.png')
+        self.logo['NYI']  = os.path.join(self.addon_path,'resources','NYI.png')
+        self.logo['NYR']  = os.path.join(self.addon_path,'resources','NYR.png')
+        self.logo['OTT']  = os.path.join(self.addon_path,'resources','OTT.png')
+        self.logo['PIT']  = os.path.join(self.addon_path,'resources','PIT.png')
+        self.logo['PHI']  = os.path.join(self.addon_path,'resources','PHI.png')
+        self.logo['SEA']  = os.path.join(self.addon_path,'resources','SEA.png')
+        self.logo['SJS']  = os.path.join(self.addon_path,'resources','SJS.png')
+        self.logo['STL']  = os.path.join(self.addon_path,'resources','STL.png')
+        self.logo['TBL']  = os.path.join(self.addon_path,'resources','TBL.png')
+        self.logo['TOR']  = os.path.join(self.addon_path,'resources','TOR.png')
+        self.logo['VAN']  = os.path.join(self.addon_path,'resources','VAN.png')
+        self.logo['WPG']  = os.path.join(self.addon_path,'resources','WPG.png')
+        self.logo['WSH']  = os.path.join(self.addon_path,'resources','WSH.png')
+        self.logo['VGK']  = os.path.join(self.addon_path,'resources','VGK.png')
+        self.api_url = 'https://api-web.nhle.com/v1/score/now'
         self.headshot_url = 'http://nhl.bamcontent.com/images/headshots/current/60x60/%s@2x.png'
         #aee colors.xml in kodi app
         self.score_color = 'FF90EE90'    #lightgreen
@@ -69,6 +102,8 @@ class Scores:
         self.addon.setSetting(id='score_updates', value='false')
 
         while not self.monitor.abortRequested():
+        #while 1:
+            
             # waiting every 25 minutes, then if time is between 3 and 4 AM, turn on processing I guess looking to ensure games wchedule is up to date
             #daily_check_time = is_between(datetime.datetime.now().time(), datetime.time(3), datetime.time(4))
             daily_check_time = datetime.datetime.now().time() > datetime.time(3)
@@ -107,10 +142,11 @@ class Scores:
         first_time_thru = True
         old_game_stats = []
         while self.scoring_updates_on() and not self.monitor.abortRequested():
+        ##if self.scoring_updates_on():
             json = self.get_scoreboard()
             self.new_game_stats.clear()
-            self.logger("Games: " + str(len(json['dates'][0]['games'])))
-            for game in json['dates'][0]['games']:
+            self.logger("Games: " + str(len(json['games'])))
+            for game in json['games']:
                 # Break out of loop if updates disabled
                 if not self.scoring_updates_on(): break
                 self.get_new_stats(game)
@@ -130,7 +166,7 @@ class Scores:
                 for new_item in self.new_game_stats:
                     if not self.scoring_updates_on(): break
                     # Check if all games have finished
-                    if 'final' not in new_item['abstract_state'].lower(): all_games_finished = False
+                    if 'final' not in new_item['gameState'].lower(): all_games_finished = False
                     for old_item in old_game_stats:
                         if not self.scoring_updates_on(): break
                         if new_item['game_id'] == old_item['game_id']:
@@ -173,45 +209,67 @@ class Scores:
     ###########################################################
         #video_playing = self.get_video_playing()  
         #self.logger(f"Video Playing: {video_playing}")
-        ateam = game['teams']['away']['team']['abbreviation']
-        hteam = game['teams']['home']['team']['abbreviation']
-        current_period = game['linescore']['currentPeriod']
-        if 'currentPeriodOrdinal' in game['linescore']: current_period = game['linescore']['currentPeriodOrdinal']
+        ateam = game['awayTeam']['abbrev']
+        hteam = game['homeTeam']['abbrev']
+        logo = ""
+        current_period = 0
+        game_clock = ""
+        if game['gameState']  not in ['FUT','PRE']:
+            current_period = game['period']
+        #-if 'currentPeriodOrdinal' in game['linescore']: current_period = game['linescore']['currentPeriodOrdinal']
 
         desc = ''
         headshot = ''
+        if 'period' in game:
+            periodStr =  self.get_period(game['period'] )
+        if 'clock' in game:
+            game_clock = f"{game['clock']['timeRemaining']} {periodStr}"
         try:
-            desc = game['scoringPlays'][-1]['result']['description']
-            strength = game['scoringPlays'][-1]['result']['strength']['code']
+            goal = game['goals'][-1]
+            desc = goal['name']['default']
+            strength = goal['strength']
             desc = f"({strength}) {desc}"
+            if goal['teamAbbrev'] == ateam:
+                logo = self.logo[ateam]
+            else:
+                logo = self.logo[hteam]
             # Remove Assists if there are none
-            if ', assists: none' in desc: desc = desc[:desc.find(', assists: none')]
-            player_id = game['scoringPlays'][-1]['players'][0]['player']['link']
-            player_id = player_id[player_id.rfind('/') + 1:]
-            headshot = self.headshot_url % player_id
+            #--if ', assists: none' in desc: desc = desc[:desc.find(', assists: none')]
+            #player_id = game['scoringPlays'][-1]['players'][0]['player']['link']
+            #player_id = player_id[player_id.rfind('/') + 1:]
+            #headshot = self.headshot_url % player_id
+            headshot = goal['mugshot']
+            game_clock = goal['timeInPeriod']
         except:
             pass
 
-        game_clock = game['status']['detailedState']
-        if 'in progress' in game_clock.lower():
-            game_clock = f"{game['linescore']['currentPeriodTimeRemaining']} {game['linescore']['currentPeriodOrdinal']}"
+        #-if 'in progress' in game_clock.lower():
+        #-    game_clock = f"{game['linescore']['currentPeriodTimeRemaining']} {game['linescore']['currentPeriodOrdinal']}"
 
         # Disable spoiler by not showing score notifications for the game the user is currently watching
         #SML. I took this out
         #if ateam.lower() not in video_playing and hteam.lower() not in video_playing:
             # Sometimes goal desc are generic, don't alert until more info has been added to the feed
         if self.getSetting(id="goal_desc") != 'true' or desc.lower() != 'goal':
+            awayScore = 0
+            if 'score' in game['awayTeam']:
+                awayScore = game['awayTeam']['score']
+            homeScore = 0
+            if 'score' in game['homeTeam']:
+                homeScore = game['homeTeam']['score']
+
             self.new_game_stats.append(
-                {"game_id": game['gamePk'],
-                "away_name": game['teams']['away']['team']['abbreviation'],
-                "home_name": game['teams']['home']['team']['abbreviation'],
-                "away_score": game['linescore']['teams']['away']['goals'],
-                "home_score": game['linescore']['teams']['home']['goals'],
+                {"game_id": game['id'],
+                "away_name": game['awayTeam']['abbrev'],
+                "home_name": game['homeTeam']['abbrev'],
+                "away_score": awayScore,
+                "home_score": homeScore,
                 "game_clock": game_clock,
                 "period": current_period,
                 "goal_desc": desc,
                 "headshot": headshot,
-                "abstract_state": game['status']['abstractGameState']})
+                "logo" : logo,
+                "gameState": game['gameState']})
 
     ###########################################################
     def check_if_changed(self, new_item, old_item):
@@ -222,11 +280,11 @@ class Scores:
         self.logger("~"+str(old_item))
         self.logger("-"+str(new_item))
  
-        if 'final' in new_item['abstract_state'].lower() and 'final' not in old_item['abstract_state'].lower():
+        if 'final' in new_item['gameState'].lower() and 'final' not in old_item['gameState'].lower():
             title, message = self.final_score_message(new_item)
-        elif 'live' in new_item['abstract_state'].lower() and 'live' not in old_item['abstract_state'].lower():
+        elif 'live' in new_item['gameState'].lower() and 'live' not in old_item['gameState'].lower():
             title, message = self.game_started_message(new_item)
-        elif new_item['period'] != old_item['period'] and 'live' in new_item['abstract_state'].lower():
+        elif new_item['period'] != old_item['period'] and 'live' in new_item['gameState'].lower():
             # Notify user that the game has started / period has changed
             title, message = self.period_change_message(new_item)
         elif new_item['game_clock'] != old_item['game_clock'] and 'END' in new_item['game_clock']:
@@ -242,12 +300,23 @@ class Scores:
             # Highlight score for the team that just scored a goal
             title, message = self.goal_scored_message(new_item, old_item)
             # Get goal scorers headshot if notification is a score update
-            if self.getSetting(id="goal_desc") == 'true' and new_item['headshot'] != '': img = new_item['headshot']
+            if new_item['logo'] != "":
+                img = new_item['logo']
 
         if title is not None and message is not None:
             self.notify(title, message, img)
             self.monitor_waitForAbort(self.display_seconds + 5)
 
+    def get_period(self, period):
+        periodStr = "OT"
+        if period == 1:
+            periodStr = "1st"
+        if period== 2:
+            periodStr = "2nd"
+        if period == 3:
+            periodStr = "3rd"
+        return periodStr
+    
     ###########################################################
     def check_games_scheduled(self):
     ###########################################################
@@ -255,20 +324,21 @@ class Scores:
         # If so, check if any are live and if not sleep until first game starts
         sleep_seconds = 0
         json = self.get_scoreboard()
-        if json['totalGames'] == 0:
+        if len(json['games']) == 0:
             self.toggle_service_off()
             self.notify(self.local_string(30300), self.local_string(30352))
         else:
             live_games = False
-            for game in json['dates'][0]['games']:
-                if game['status']['abstractGameState'].lower() == 'live':
+            for game in json['games']:
+                if game['gameState'].lower()  in ['live','crit','pre','off']:
                     live_games = True
                     break
 
             seconds_to_start = 0
+            game = json['games'][0]
             if not live_games:
                 # date found in stream is UTC
-                first_game_start = self.string_to_date(json['dates'][0]['games'][0]['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
+                first_game_start = self.string_to_date(game['startTimeUTC'], "%Y-%m-%dT%H:%M:%SZ")
                 seconds_to_start = int((first_game_start - datetime.datetime.utcnow()).total_seconds())
                 if seconds_to_start  >= 6600:
                     # hour and 50 minutes or more just display hours
@@ -302,7 +372,8 @@ class Scores:
         if self.test:
             url = self.api_url % '2022-4-18'
         else:
-            url = self.api_url % self.local_to_pacific()
+            #url = self.api_url % self.local_to_pacific()
+            url = self.api_url
             
         try:    
             headers = {'User-Agent': self.ua_ipad}
@@ -371,7 +442,7 @@ class Scores:
             home_score = f"[COLOR={self.score_color}]{new_item['home_name']} {new_item['home_score']}[/COLOR]"
 
         game_clock = f"[COLOR={self.gametime_color}]{new_item['game_clock']}[/COLOR]"
-        message = f"{away_score}    {home_score}    {game_clock}"
+        message = f"{away_score}    {home_score}"
         return title, message
 
     def game_started_message(self, new_item):
@@ -382,9 +453,10 @@ class Scores:
     def period_change_message(self, new_item):
         # Notify user that the game has started / period has changed
         title = self.local_string(30370)
+        periodStr =  self.get_period(new_item['period'] )
         message = f"{new_item['away_name']} {new_item['away_score']}    " \
                   f"{new_item['home_name']} {new_item['home_score']}   " \
-                  f"[COLOR={self.gametime_color}]{new_item['period']} has started[/COLOR]"
+                  f"[COLOR={self.gametime_color}]{periodStr} has started[/COLOR]"
 
         return title, message
 
@@ -398,11 +470,12 @@ class Scores:
         return title, message
 
     def goal_scored_message(self, new_item, old_item):
+        periodStr =  self.get_period(new_item['period'] )
         # Highlight score for the team that just scored a goal
         away_score = f"[COLOR={self.score_color_other_team}]{new_item['away_name']} {new_item['away_score']}[/COLOR]"
         home_score = f"[COLOR={self.score_color_other_team}]{new_item['home_name']} {new_item['home_score']}[/COLOR]"
-        game_clock = f"[COLOR={self.gametime_color}]{new_item['game_clock']}[/COLOR]"
-
+        game_clock = f"[COLOR={self.gametime_color}]{new_item['game_clock']} {periodStr}[/COLOR]"
+        
         if new_item['away_score'] != old_item['away_score']:
             away_score = f"[COLOR={self.score_color}]{new_item['away_name']} {new_item['away_score']}[/COLOR]"
         if new_item['home_score'] != old_item['home_score']:
