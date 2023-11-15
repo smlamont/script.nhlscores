@@ -21,6 +21,10 @@ import xbmcvfs
 #Issue 1
 # sometimes it doesn't wake up from sleep, so I put in max sleep time.
 
+#TODO: still need to determine if boxscore and score are updated at same time.
+# eventually pass 'strength' to getlastGoal and add it in desc return and replace score description. 
+# try threads and put in a minute after to ut a second message with the assist?
+#https://www.geeksforgeeks.org/how-to-create-a-new-thread-in-python/
 
 def is_between(now, start, end):
     is_between = False
@@ -33,7 +37,7 @@ def is_between(now, start, end):
 
 class Scores:
 
-    def __init__(self):
+    def __init__(self, debug):
         self.addon = xbmcaddon.Addon()
         self.addon_path = xbmcvfs.translatePath(self.addon.getAddonInfo('path'))
         self.local_string = self.addon.getLocalizedString
@@ -72,7 +76,8 @@ class Scores:
         self.logo['WPG']  = os.path.join(self.addon_path,'resources','WPG.png')
         self.logo['WSH']  = os.path.join(self.addon_path,'resources','WSH.png')
         self.logo['VGK']  = os.path.join(self.addon_path,'resources','VGK.png')
-        self.api_url = 'https://api-web.nhle.com/v1/score/now'
+        self.api_url = 'https://api-web.nhle.com/v1/score/%s'
+        self.api_boxscore_url = 'https://api-web.nhle.com/v1/gamecenter/%s/landing'
         self.headshot_url = 'http://nhl.bamcontent.com/images/headshots/current/60x60/%s@2x.png'
         #aee colors.xml in kodi app
         self.score_color = 'FF90EE90'    #lightgreen
@@ -80,13 +85,14 @@ class Scores:
         self.gametime_color = 'FFFFFF00'  #yellow
         self.new_game_stats = []
         self.wait = 30
+        self.init_wait = 0
         self.display_seconds = 5
         self.display_milliseconds = self.display_seconds * 1000
         self.delay_seconds = 1
         self.delayy_milliseconds = self.delay_seconds * 1000
         self.dialog = xbmcgui.Dialog()
         self.monitor = xbmc.Monitor()
-        self.test = False
+        self.test = debug
         # WHhy is this 25 minutes, Do I need it
         self.DAILY_CHECK_TIMER_PERIOD = 1500 #25 minutes
         self.MAX_SLEEP_TIME = 10800 #3 h0urs
@@ -101,8 +107,9 @@ class Scores:
         first_run = True
         self.addon.setSetting(id='score_updates', value='false')
 
-        while not self.monitor.abortRequested():
-        #while 1:
+      
+        while not self.monitor_waitForAbort(self.init_wait):
+        ##-while 1:
             
             # waiting every 25 minutes, then if time is between 3 and 4 AM, turn on processing I guess looking to ensure games wchedule is up to date
             #daily_check_time = is_between(datetime.datetime.now().time(), datetime.time(3), datetime.time(4))
@@ -124,6 +131,7 @@ class Scores:
                     self.notify(self.local_string(30300), self.local_string(30350))
                     #In above, if waiting, this still executes (probably because in debug, the libs work differently)
                     self.logger(f"running: {self.scoring_updates_on()}")
+                    # if debugging this is alway true. but no harm.
                     if self.monitor.abortRequested():
                         self.logger(f"abort requested was seen")
                     self.scoring_updates()
@@ -132,17 +140,26 @@ class Scores:
 
                 first_run = False
 
+            ##- comment this out
             self.monitor_waitForAbort(self.DAILY_CHECK_TIMER_PERIOD)
+
+    def testGetScores(self):
+        json = self.get_scoreboard()
+        self.new_game_stats.clear()
+        self.logger("Games: " + str(len(json['games'])))
+        for game in json['games']:
+            self.get_new_stats(game)
+
             
     ###########################################################
-    # this is a forever loop looking for updates
+    # this is called from a forever loop looking for updates
     # I don't think any of break statements within the loop do anything
     ###########################################################
     def scoring_updates(self):
         first_time_thru = True
         old_game_stats = []
         while self.scoring_updates_on() and not self.monitor.abortRequested():
-        ##if self.scoring_updates_on():
+        ##-if self.scoring_updates_on():
             json = self.get_scoreboard()
             self.new_game_stats.clear()
             self.logger("Games: " + str(len(json['games'])))
@@ -162,7 +179,6 @@ class Scores:
                 if len(old_game_stats) == 0 or len(self.new_game_stats) == 0:
                     all_games_finished = False
                     
-                # this doesn't show end of game.. need to loop at old first?
                 for new_item in self.new_game_stats:
                     if not self.scoring_updates_on(): break
                     # Check if all games have finished
@@ -171,17 +187,6 @@ class Scores:
                         if not self.scoring_updates_on(): break
                         if new_item['game_id'] == old_item['game_id']:
                             self.check_if_changed(new_item, old_item)
-
-                #for old_item in old_game_stats:
-                #    if not self.scoring_updates_on(): break
-                #    # Check if all games have finished
-                #    for new_item in new_game_stats:
-                #        if not self.scoring_updates_on(): break
-                ##        if 'final' not in new_item['abstract_state'].lower(): all_games_finished = False 
-                #        if new_item['game_id'] == old_item['game_id']:
-                #            self.check_if_changed(new_item, old_item)
-
-
 
                 if self.test:
                     self.testing(new_item)
@@ -201,6 +206,7 @@ class Scores:
             # If kodi exits or goes idle stop running the script
             if self.monitor_waitForAbort(self.wait):
                 self.logger("**************Abort Called**********************")
+                ##- comment this out.
                 break
                 
                 
@@ -226,8 +232,8 @@ class Scores:
             game_clock = f"{game['clock']['timeRemaining']} {periodStr}"
         try:
             goal = game['goals'][-1]
-            desc = goal['name']['default']
-            strength = goal['strength']
+            desc = goal['name']['default'] + " (" + str(goal['goalsToDate']) + ")"
+            strength = goal['strength'] if goal['strength'] != "EV" else "Even"
             desc = f"({strength}) {desc}"
             if goal['teamAbbrev'] == ateam:
                 logo = self.logo[ateam]
@@ -298,8 +304,10 @@ class Scores:
         elif (new_item['home_score'] != old_item['home_score'] and new_item['home_score'] > 0) \
                 or (new_item['away_score'] != old_item['away_score'] and new_item['away_score'] > 0):
             # Highlight score for the team that just scored a goal
-            title, message = self.goal_scored_message(new_item, old_item)
-            # Get goal scorers headshot if notification is a score update
+            last_score = self.get_last_goal(new_item['game_id'])
+            title, message = self.goal_scored_message(new_item, old_item, last_score)
+            # Get goal scorers headshot if notification is a score update - changed to team logo
+            #Note can't use SVG found in API (not supported in KODI), so reference PNGs built into app
             if new_item['logo'] != "":
                 img = new_item['logo']
 
@@ -368,12 +376,13 @@ class Scores:
     #put in try actually hit an issue with nhl.com once
     ###########################################################            
     def get_scoreboard(self):
-    ###########################################################            
+    ###########################################################       
+    # /now doesn't update to current date until later in the new date, so use a date specifically     
         if self.test:
-            url = self.api_url % '2022-4-18'
+            url = self.api_url % datetime.datetime.now().strftime('%Y-%m-%d')
         else:
             #url = self.api_url % self.local_to_pacific()
-            url = self.api_url
+            url = self.api_url % datetime.datetime.now().strftime('%Y-%m-%d')
             
         try:    
             headers = {'User-Agent': self.ua_ipad}
@@ -382,6 +391,36 @@ class Scores:
         except:
             pass
         return self.last_json
+    
+    ###########################################################            
+    def get_last_goal(self, game_id):
+    ###########################################################     
+        resp = ""       
+        if self.test:
+            url = self.api_boxscore_url % '2023020224'
+        else:
+            #url = self.api_url % self.local_to_pacific()
+            url = self.api_boxscore_url % game_id
+            
+        try:    
+            headers = {'User-Agent': self.ua_ipad}
+            r = requests.get(url, headers=headers)
+            last_json = r.json()
+            goal = ""
+            lastGoalPeriod = len(last_json['summary']['scoring']) -1
+            if lastGoalPeriod > -1:
+                if len(last_json['summary']['scoring'][lastGoalPeriod]) > 0:
+                    goal = last_json['summary']['scoring'][lastGoalPeriod]['goals'][-1]
+                    resp = goal['firstName'] + " " + goal['lastName'] + " (" + str(goal['goalsToDate']) + ") "
+                    if len(goal['assists']) > 0:
+                        resp += " from "  +  goal['assists'][0]['firstName'] + " " + goal['assists'][0]['lastName'] + " (" + str(goal['assists'][0]['assistsToDate']) + ") "
+                    if len(goal['assists']) > 1:
+                        resp += ", "  +  goal['assists'][1]['firstName'] + " " + goal['assists'][1]['lastName'] + " (" + str(goal['assists'][1]['assistsToDate']) + ") "
+            
+
+        except:
+            pass
+        return resp
                 
     ###########################################################            
     ###########################################################            
@@ -469,7 +508,7 @@ class Scores:
 
         return title, message
 
-    def goal_scored_message(self, new_item, old_item):
+    def goal_scored_message(self, new_item, old_item, last_score):
         periodStr =  self.get_period(new_item['period'] )
         # Highlight score for the team that just scored a goal
         away_score = f"[COLOR={self.score_color_other_team}]{new_item['away_name']} {new_item['away_score']}[/COLOR]"
@@ -486,7 +525,9 @@ class Scores:
             message = f"{away_score}    {home_score}    {game_clock}"
         else:
             title = f"{away_score}    {home_score}    {game_clock}"
-            message = new_item['goal_desc']
+            #message = new_item['goal_desc']
+            # temporay to see of there is a big time delay in updating landing.
+            message = new_item['goal_desc'] + " " + last_score
 
         return title, message
 

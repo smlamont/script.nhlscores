@@ -3,3 +3,21 @@
 [![Contributors](https://img.shields.io/github/contributors/eracknaphobia/script.nhlscores.svg)](https://github.com/eracknaphobia/script.nhlscores/graphs/contributors)
 
 Live scoring and game updates through kodi
+
+
+
+
+
+``` 
+python -m venv .venv
+
+".venv/Scripts/activate.bat"
+
+pip install kodistubs
+pip install pytz
+pip install requests
+
+if debugging from VSCode, start in default.py  or create a launch and use default.py as the file to exeute.
+
+```
+
