@@ -110,11 +110,11 @@ class Scores:
       
         #see if I can wrap this for bdebug purposes. this is different than wait
         #while not self.monitor.abortRequested():
-        while not self.monitor_AbortRequested():
-            if self.monitor.waitForAbort(1):
-                print('BREAK FOR ABORT')
-                break
         ##-while 1:
+        while not self.monitor_AbortRequested():
+            if self.monitor_waitForAbort(1):
+                self.logger(f"abort requested was seen")
+                break
             
             # waiting every 25 minutes, then if time is between 3 and 4 AM, turn on processing I guess looking to ensure games wchedule is up to date
             #daily_check_time = is_between(datetime.datetime.now().time(), datetime.time(3), datetime.time(4))
@@ -136,16 +136,17 @@ class Scores:
                     self.notify(self.local_string(30300), self.local_string(30350))
                     #In above, if waiting, this still executes (probably because in debug, the libs work differently)
                     self.logger(f"running: {self.scoring_updates_on()}")
-                    # if debugging this is alway true. but no harm.
-                    if self.monitor.abortRequested():
+
+                    if self.monitor_abortRequested():
                         self.logger(f"abort requested was seen")
                     self.scoring_updates()
-                    # this should be redundsnt
+
+                    # this should be redundant
                     self.toggle_service_off()
 
                 first_run = False
 
-            ##- comment this out
+            ##- comment this out on debug??
             self.monitor_waitForAbort(self.DAILY_CHECK_TIMER_PERIOD)
 
     def testGetScores(self):
@@ -163,7 +164,7 @@ class Scores:
     def scoring_updates(self):
         first_time_thru = True
         old_game_stats = []
-        while self.scoring_updates_on() and not self.monitor.abortRequested():
+        while self.scoring_updates_on() and not self.monitor_abortRequested():
         ##-if self.scoring_updates_on():
             json = self.get_scoreboard()
             self.new_game_stats.clear()
@@ -303,7 +304,7 @@ class Scores:
             title, message = self.period_ended_message(new_item)
             
         #TODO: maybe ignore this and check goals by all_messages
-        #problem may be determining which team scored, if you don't use new/old but who cartes.\
+        #problem may be determining which team scored, if you don't use new/old but who cares.\
         # check baseed on old/bew
         
         elif (new_item['home_score'] != old_item['home_score'] and new_item['home_score'] > 0) \
@@ -311,7 +312,8 @@ class Scores:
             # Highlight score for the team that just scored a goal
             last_score = self.get_last_goal(new_item['game_id'])
             title, message = self.goal_scored_message(new_item, old_item, last_score)
-            # Get goal scorers headshot if notification is a score update - changed to team logo
+
+            # Get goal scorers headshot if notification is a score update -> changed to team logo
             #Note can't use SVG found in API (not supported in KODI), so reference PNGs built into app
             if new_item['logo'] != "":
                 img = new_item['logo']
@@ -320,7 +322,9 @@ class Scores:
             self.notify(title, message, img)
             self.monitor_waitForAbort(self.display_seconds + 5)
 
+    ###########################################################
     def get_period(self, period):
+    ###########################################################
         periodStr = "OT"
         if period == 1:
             periodStr = "1st"
@@ -385,7 +389,7 @@ class Scores:
     ###########################################################       
     # /now doesn't update to current date until later in the new date, so use a date specifically     
         if self.test:
-            url = self.api_url % datetime.datetime.now().strftime('%Y-%m-%d')
+            url = self.api_url % "2023-11-14"
         else:
             #url = self.api_url % self.local_to_pacific()
             url = self.api_url % datetime.datetime.now().strftime('%Y-%m-%d')
@@ -403,7 +407,7 @@ class Scores:
     ###########################################################     
         resp = ""       
         if self.test:
-            url = self.api_boxscore_url % '2023020224'
+            url = self.api_boxscore_url % '2023020229'
         else:
             #url = self.api_url % self.local_to_pacific()
             url = self.api_boxscore_url % game_id
@@ -476,6 +480,7 @@ class Scores:
         self.delay_seconds = int(self.getSetting(id="delay_seconds"))
         self.delaymilliseconds = self.delay_seconds * 1000
         
+    ###########################################################        
     def final_score_message(self, new_item):
         # Highlight score of the winning team
         title = self.local_string(30355)
@@ -587,7 +592,7 @@ class Scores:
 
     def monitor_AbortRequested(self):
         if (self.test):
-            return 1
+            return 0
         else:
             xbmc.log(f"[script.nhlscores] waiting for abort", self.loglevel)
             self.monitor.abortRequested()           
@@ -597,6 +602,7 @@ class Scores:
         if self.test:
             print(msg)
         return
+    
     ###########################################################   
     def notify(self, title, msg, img=None):
     ###########################################################   
