@@ -309,6 +309,8 @@ class Scores:
         elif (new_item['home_score'] != old_item['home_score'] and new_item['home_score'] > 0) \
                 or (new_item['away_score'] != old_item['away_score'] and new_item['away_score'] > 0):
             # Highlight score for the team that just scored a goal
+            # wait 30 seconds for score to update fully.
+            self.monitor_waitForAbort(30)
             last_score = self.get_last_goal(new_item['game_id'])
             title, message = self.goal_scored_message(new_item, old_item, last_score)
             # Get goal scorers headshot if notification is a score update - changed to team logo
@@ -346,6 +348,7 @@ class Scores:
             for game in json['games']:
                 if game['gameState'].lower()  in ['live','crit','pre','off']:
                     live_games = True
+                    seconds_to_start = 0
                     break
 
             
@@ -401,6 +404,7 @@ class Scores:
     ###########################################################            
     def get_last_goal(self, game_id):
     ###########################################################     
+    # could look for x goal. if not found, sleep for 10 seconds than retry again until found.
         resp = ""       
         if self.test:
             url = self.api_boxscore_url % '2023020224'
