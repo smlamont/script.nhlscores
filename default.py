@@ -14,7 +14,7 @@ if debug:
     scores.service()
     scores.testGetScores()
     old_game_stats = copy.copy(scores.new_game_stats[0])
-    scores.new_game_stats[0]['home_score'] = scores.new_game_stats[0]['home_score'] - 1
+    scores.new_game_stats[0]['goal_desc'] = "XXX"
     scores.check_if_changed(scores.new_game_stats[0],old_game_stats)
 else:
     scores.service()

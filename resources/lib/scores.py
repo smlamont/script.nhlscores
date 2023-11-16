@@ -26,6 +26,12 @@ import xbmcvfs
 # try threads and put in a minute after to ut a second message with the assist?
 #https://www.geeksforgeeks.org/how-to-create-a-new-thread-in-python/
 
+#Potential Issues:
+# if it is not noted that all games are finished, then it will run all the next day and not sleep.
+# --> not sure if this is something or an issue based on a bug.
+# What happens after midnight.  I'd get games for next day.
+# I could use /now while active, but use /date when trying to restart
+
 def is_between(now, start, end):
     is_between = False
 
@@ -111,7 +117,7 @@ class Scores:
         #see if I can wrap this for bdebug purposes. this is different than wait
         #while not self.monitor.abortRequested():
         ##-while 1:
-        while not self.monitor_AbortRequested():
+        while not self.monitor_abortRequested():
             if self.monitor_waitForAbort(1):
                 self.logger(f"abort requested was seen")
                 break
@@ -146,7 +152,9 @@ class Scores:
 
                 first_run = False
 
-            ##- comment this out on debug??
+
+            if (self.test):
+                break;
             self.monitor_waitForAbort(self.DAILY_CHECK_TIMER_PERIOD)
 
     def testGetScores(self):
@@ -188,14 +196,15 @@ class Scores:
                 for new_item in self.new_game_stats:
                     if not self.scoring_updates_on(): break
                     # Check if all games have finished
-                    if 'final' not in new_item['gameState'].lower(): all_games_finished = False
+                    if new_item['gameState'] in ['LIVE','CRIT']: all_games_finished = False
+                    #if 'final' not in new_item['gameState'].lower(): all_games_finished = False
                     for old_item in old_game_stats:
                         if not self.scoring_updates_on(): break
                         if new_item['game_id'] == old_item['game_id']:
                             self.check_if_changed(new_item, old_item)
 
-                if self.test:
-                    self.testing(new_item)
+                #if self.test:
+                #    self.testing(new_item)
 
                 # if all games have finished for the night stop the script
                 if all_games_finished and self.scoring_updates_on():
@@ -208,6 +217,9 @@ class Scores:
 
             old_game_stats.clear()
             old_game_stats = copy.deepcopy(self.new_game_stats)
+            ##- in debug, only don't allow the service to loop.
+            if self.test and first_time_thru == True:
+                break;
             first_time_thru = False
             # If kodi exits or goes idle stop running the script
             if self.monitor_waitForAbort(self.wait):
@@ -228,8 +240,6 @@ class Scores:
         game_clock = ""
         if game['gameState']  not in ['FUT','PRE']:
             current_period = game['period']
-        #-if 'currentPeriodOrdinal' in game['linescore']: current_period = game['linescore']['currentPeriodOrdinal']
-
         desc = ''
         headshot = ''
         if 'period' in game:
@@ -262,7 +272,8 @@ class Scores:
         #SML. I took this out
         #if ateam.lower() not in video_playing and hteam.lower() not in video_playing:
             # Sometimes goal desc are generic, don't alert until more info has been added to the feed
-        if self.getSetting(id="goal_desc") != 'true' or desc.lower() != 'goal':
+        #if self.getSetting(id="goal_desc") != 'true' or desc.lower() != 'goal':
+        if self.getSetting(id="goal_desc") == 'true':
             awayScore = 0
             if 'score' in game['awayTeam']:
                 awayScore = game['awayTeam']['score']
@@ -304,15 +315,25 @@ class Scores:
             title, message = self.period_ended_message(new_item)
             
         #TODO: maybe ignore this and check goals by all_messages
-        #problem may be determining which team scored, if you don't use new/old but who cares.\
-        # check baseed on old/bew
-        
-        elif (new_item['home_score'] != old_item['home_score'] and new_item['home_score'] > 0) \
-                or (new_item['away_score'] != old_item['away_score'] and new_item['away_score'] > 0):
-            # Highlight score for the team that just scored a goal
+        # forget score change and just use desc change.  The desc includes goal number, so if a player score two in a row
+        # the desc changes.  This also catches case where score is updated 1st, then the goal scorer is added and found
+        # int the next api call.
+             # Highlight score for the team that just scored a goal
+            # 2 delays possible: 
+            # goal is noted in score, but person scoring is not updated yet.
+            # goal isn't recorded in landing paging for game where we go for assits
+            # --> so getting last goal can be a little risky
             # wait 30 seconds for score to update fully.
+            #       
+        #elif (new_item['home_score'] != old_item['home_score'] and new_item['home_score'] > 0) or \
+        #     (new_item['away_score'] != old_item['away_score'] and new_item['away_score'] > 0):
+        elif new_item['goal_desc'] != old_item['goal_desc']:
+            
+
             self.monitor_waitForAbort(30)
-            last_score = self.get_last_goal(new_item['game_id'])
+            goal_number = new_item['home_score'] + new_item['away_score'] 
+            last_score = self.get_last_goal(new_item['game_id'], goal_number)
+
             title, message = self.goal_scored_message(new_item, old_item, last_score)
 
             # Get goal scorers headshot if notification is a score update -> changed to team logo
@@ -350,7 +371,7 @@ class Scores:
         else:
             live_games = False
             for game in json['games']:
-                if game['gameState'].lower()  in ['live','crit','pre','off']:
+                if game['gameState']  in ['LIVE','CRIT','PRE']:
                     live_games = True
                     seconds_to_start = 0
                     break
@@ -360,6 +381,7 @@ class Scores:
             if not live_games:
                 # date found in stream is UTC
                 first_game_start = self.string_to_date(game['startTimeUTC'], "%Y-%m-%dT%H:%M:%SZ")
+                # if debuging and using an old date, this will mean starting right away and not sleeping
                 seconds_to_start = int((first_game_start - datetime.datetime.utcnow()).total_seconds())
                 if seconds_to_start  >= 6600:
                     # hour and 50 minutes or more just display hours
@@ -401,14 +423,18 @@ class Scores:
             headers = {'User-Agent': self.ua_ipad}
             r = requests.get(url, headers=headers)
             self.last_json = r.json()
+            self.logger(self.last_json)
         except:
             pass
         return self.last_json
     
     ###########################################################            
-    def get_last_goal(self, game_id):
+    def get_last_goal(self, game_id, goal_number):
     ###########################################################     
     # could look for x goal. if not found, sleep for 10 seconds than retry again until found.
+    # Q: Do all periods show up in landing while the game is live. I suspect not and the periods occur when 
+    # game is in that state
+        self.logger(f"looking for goal: {goal_number}")
         resp = ""       
         if self.test:
             url = self.api_boxscore_url % '2023020229'
@@ -421,13 +447,26 @@ class Scores:
             r = requests.get(url, headers=headers)
             last_json = r.json()
             goal = ""
-            lastGoalPeriod = len(last_json['summary']['scoring']) -1
-            if lastGoalPeriod > -1:
-                if len(last_json['summary']['scoring'][lastGoalPeriod]) > 0:
-                    goal = last_json['summary']['scoring'][lastGoalPeriod]['goals'][-1]
-                    resp = goal['firstName'] + " " + goal['lastName'] + " (" + str(goal['goalsToDate']) + ") "
+            
+            lastGoalPeriodArrIdx = len(last_json['summary']['scoring']) -1
+            totalReportedGoals = 0
+            if (lastGoalPeriodArrIdx == 3):
+                totalReportedGoals += len(last_json['summary']['scoring'][3]['goals'])
+            if (lastGoalPeriodArrIdx >= 2):
+                totalReportedGoals += len(last_json['summary']['scoring'][2]['goals'])                
+            if (lastGoalPeriodArrIdx >= 1):
+                totalReportedGoals += len(last_json['summary']['scoring'][1]['goals'])  
+            if (lastGoalPeriodArrIdx >= 0):
+                totalReportedGoals += len(last_json['summary']['scoring'][0]['goals'])      
+
+            if (totalReportedGoals < goal_number):
+                resp = "goal not reported yet in landing"            
+            elif lastGoalPeriodArrIdx > -1:
+                if len(last_json['summary']['scoring'][lastGoalPeriodArrIdx]) > 0:
+                    goal = last_json['summary']['scoring'][lastGoalPeriodArrIdx]['goals'][-1]
+                    resp = "(" + goal['strength'] + ") " + goal['firstName'] + " " + goal['lastName'] + " (" + str(goal['goalsToDate']) + ") "
                     if len(goal['assists']) > 0:
-                        resp += " from "  +  goal['assists'][0]['firstName'] + " " + goal['assists'][0]['lastName'] + " (" + str(goal['assists'][0]['assistsToDate']) + ") "
+                        resp += "from "  +  goal['assists'][0]['firstName'] + " " + goal['assists'][0]['lastName'] + " (" + str(goal['assists'][0]['assistsToDate']) + ") "
                     if len(goal['assists']) > 1:
                         resp += ", "  +  goal['assists'][1]['firstName'] + " " + goal['assists'][1]['lastName'] + " (" + str(goal['assists'][1]['assistsToDate']) + ") "
             
@@ -542,7 +581,9 @@ class Scores:
             title = f"{away_score}    {home_score}    {game_clock}"
             #message = new_item['goal_desc']
             # temporay to see of there is a big time delay in updating landing.
-            message = new_item['goal_desc'] + " " + last_score
+            # we are now waiting, so ignore anythig from scoreboard (ie. new_item stuff) 
+            #message = new_item['goal_desc'] + " " + last_score
+            message = last_score
 
         return title, message
 
@@ -594,7 +635,7 @@ class Scores:
             #xbmc.log(f"[script.nhlscores] self test is off", self.loglevel)
             return self.monitor.waitForAbort(seconds)    
 
-    def monitor_AbortRequested(self):
+    def monitor_abortRequested(self):
         if (self.test):
             return 0
         else:
