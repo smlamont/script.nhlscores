@@ -246,6 +246,9 @@ class Scores:
             periodStr =  self.get_period(game['period'] )
         if 'clock' in game:
             game_clock = f"{game['clock']['timeRemaining']} {periodStr}"
+            if game['clock']['inIntermission'] == True:
+                game_clock = f"00:00 {periodStr}"
+            
         try:
             goal = game['goals'][-1]
             desc = goal['name']['default'] + " (" + str(goal['goalsToDate']) + ")"
@@ -261,7 +264,7 @@ class Scores:
             #player_id = player_id[player_id.rfind('/') + 1:]
             #headshot = self.headshot_url % player_id
             headshot = goal['mugshot']
-            game_clock = goal['timeInPeriod']
+            #--game_clock = goal['timeInPeriod']
         except:
             pass
 
@@ -310,7 +313,7 @@ class Scores:
         elif new_item['period'] != old_item['period'] and 'live' in new_item['gameState'].lower():
             # Notify user that the game has started / period has changed
             title, message = self.period_change_message(new_item)
-        elif new_item['game_clock'] != old_item['game_clock'] and 'END' in new_item['game_clock']:
+        elif new_item['game_clock'][:5] == "00:00" and old_item['game_clock'][:5] != "00:00":
             # Notify user that the game has started / period has changed
             title, message = self.period_ended_message(new_item)
             
@@ -556,9 +559,10 @@ class Scores:
     def period_ended_message(self, new_item):
         # Notify user that the game has started / period has changed
         title = self.local_string(30370)
+        msg = new_item['game_clock'].replace("00:00","End of")
         message = f"{new_item['away_name']} {new_item['away_score']}    " \
                   f"{new_item['home_name']} {new_item['home_score']}   " \
-                  f"[COLOR={self.gametime_color}]{new_item['game_clock']} [/COLOR]"
+                  f"[COLOR={self.gametime_color}]{msg} [/COLOR]"
 
         return title, message
 
