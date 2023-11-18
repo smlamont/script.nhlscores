@@ -567,11 +567,12 @@ class Scores:
         return title, message
 
     def goal_scored_message(self, new_item, old_item, last_score):
-        periodStr =  self.get_period(new_item['period'] )
+        #game clock already has periodStr in it
+        #periodStr =  self.get_period(new_item['period'] )
         # Highlight score for the team that just scored a goal
         away_score = f"[COLOR={self.score_color_other_team}]{new_item['away_name']} {new_item['away_score']}[/COLOR]"
         home_score = f"[COLOR={self.score_color_other_team}]{new_item['home_name']} {new_item['home_score']}[/COLOR]"
-        game_clock = f"[COLOR={self.gametime_color}]{new_item['game_clock']} {periodStr}[/COLOR]"
+        game_clock = f"[COLOR={self.gametime_color}]{new_item['game_clock']}[/COLOR]"
         
         if new_item['away_score'] != old_item['away_score']:
             away_score = f"[COLOR={self.score_color}]{new_item['away_name']} {new_item['away_score']}[/COLOR]"
