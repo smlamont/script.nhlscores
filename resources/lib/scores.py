@@ -379,7 +379,10 @@ class Scores:
                     seconds_to_start = 0
                     break
 
-            
+            if len(json['games']) == 0:
+                #put in a no games message?
+                self.notify("WTF Betman", "No Games Today", self.nhl_logo)
+                return 86400
             game = json['games'][0]
             if not live_games:
                 # date found in stream is UTC
