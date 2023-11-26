@@ -3,6 +3,7 @@
 [![Contributors](https://img.shields.io/github/contributors/eracknaphobia/script.nhlscores.svg)](https://github.com/eracknaphobia/script.nhlscores/graphs/contributors)
 
 Live scoring and game updates through kodi
+Updated to use new NHL APIs: https://api-web.nhle.com/v1
 
 
 

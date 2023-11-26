@@ -307,14 +307,14 @@ class Scores:
         self.logger("-"+str(new_item))
  
         if 'final' in new_item['gameState'].lower() and 'final' not in old_item['gameState'].lower():
-            title, message = self.final_score_message(new_item)
+            title, message, img = self.final_score_message(new_item)
         elif 'live' in new_item['gameState'].lower() and 'live' not in old_item['gameState'].lower():
             title, message = self.game_started_message(new_item)
         elif new_item['period'] != old_item['period'] and 'live' in new_item['gameState'].lower():
             # Notify user that the game has started / period has changed
             title, message = self.period_change_message(new_item)
-        elif new_item['game_clock'][:5] == "00:00" and old_item['game_clock'][:5] != "00:00":
-            # Notify user that the game has started / period has changed
+        elif new_item['game_clock'][:5] == "00:00" and old_item['game_clock'][:5] != "00:00" :
+            # Notify user that the periord has ended
             title, message = self.period_ended_message(new_item)
             
         #TODO: maybe ignore this and check goals by all_messages
@@ -466,7 +466,7 @@ class Scores:
                 totalReportedGoals += len(last_json['summary']['scoring'][0]['goals'])      
 
             if (totalReportedGoals < goal_number):
-                resp = "goal not reported yet in landing"            
+                resp = "...goal not reported yet..."            
             elif lastGoalPeriodArrIdx > -1:
                 if len(last_json['summary']['scoring'][lastGoalPeriodArrIdx]) > 0:
                     goal = last_json['summary']['scoring'][lastGoalPeriodArrIdx]['goals'][-1]
@@ -533,16 +533,19 @@ class Scores:
     def final_score_message(self, new_item):
         # Highlight score of the winning team
         title = self.local_string(30355)
+        img = ""
         if new_item['away_score'] > new_item['home_score']:
             away_score = f"[COLOR={self.score_color}]{new_item['away_name']} {new_item['away_score']}[/COLOR]"
             home_score = f"{new_item['home_name']} {new_item['home_score']}"
+            img = self.logo[new_item['away_name']]
         else:
             away_score = f"{new_item['away_name']} {new_item['away_score']}"
             home_score = f"[COLOR={self.score_color}]{new_item['home_name']} {new_item['home_score']}[/COLOR]"
-
+            img = self.logo[new_item['home_name']]
+    
         game_clock = f"[COLOR={self.gametime_color}]{new_item['game_clock']}[/COLOR]"
         message = f"{away_score}    {home_score}"
-        return title, message
+        return title, message, img
 
     def game_started_message(self, new_item):
         title = self.local_string(30358)
