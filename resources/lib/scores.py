@@ -136,7 +136,7 @@ class Scores:
                 
                 sleep_seconds = self.check_games_scheduled() #check for games, sleep until games start
                 self.logger(f"seconds before 1st game: {sleep_seconds}")
-                # thi will always be 25 minlate, for 1t interation.  self.DAILY_CHECK_TIMER_PERIOD
+                # thi will always be 25 minlate, for 1st interation.  self.DAILY_CHECK_TIMER_PERIOD
                 if sleep_seconds < self.DAILY_CHECK_TIMER_PERIOD:
                     self.toggle_service_on()
                     self.notify(self.local_string(30300), self.local_string(30350))
@@ -145,6 +145,8 @@ class Scores:
 
                     if self.monitor_abortRequested():
                         self.logger(f"abort requested was seen")
+                        
+                    #SML: this stays in scoring_updates until the games are over.
                     self.scoring_updates()
 
                     # this should be redundant
@@ -155,7 +157,8 @@ class Scores:
 
             if (self.test):
                 break;
-            self.monitor_waitForAbort(self.DAILY_CHECK_TIMER_PERIOD)
+            self.logger(f"sleep for: {self.MAX_SLEEP_TIME}")
+            self.monitor_waitForAbort(self.MAX_SLEEP_TIME)
 
     def testGetScores(self):
         json = self.get_scoreboard()
@@ -365,12 +368,14 @@ class Scores:
     ###########################################################
         # Check if any games are scheduled for today.
         # If so, check if any are live and if not sleep until first game starts
+        
         sleep_seconds = 0
         seconds_to_start = 1500
         json = self.get_scoreboard()
         if 'games' not in json:
             self.toggle_service_off()
             self.notify(self.local_string(30300), self.local_string(30352))
+            #SML: I should sleep here..
         else:
             live_games = False
             for game in json['games']:
@@ -383,6 +388,7 @@ class Scores:
                 #put in a no games message?
                 self.notify("WTF Betman", "No Games Today", self.nhl_logo)
                 return 86400
+                #SML: I should sleep here..
             game = json['games'][0]
             if not live_games:
                 # date found in stream is UTC
@@ -470,11 +476,11 @@ class Scores:
             elif lastGoalPeriodArrIdx > -1:
                 if len(last_json['summary']['scoring'][lastGoalPeriodArrIdx]) > 0:
                     goal = last_json['summary']['scoring'][lastGoalPeriodArrIdx]['goals'][-1]
-                    resp = "(" + goal['strength'] + ") " + goal['firstName'] + " " + goal['lastName'] + " (" + str(goal['goalsToDate']) + ") "
+                    resp = "(" + goal['strength'] + ") " + goal['firstName']['default'] + " " + goal['lastName']['default'] + " (" + str(goal['goalsToDate']) + ") "
                     if len(goal['assists']) > 0:
-                        resp += "from "  +  goal['assists'][0]['firstName'] + " " + goal['assists'][0]['lastName'] + " (" + str(goal['assists'][0]['assistsToDate']) + ") "
+                        resp += "from "  +  goal['assists'][0]['firstName']['default'] + " " + goal['assists'][0]['lastName']['default'] + " (" + str(goal['assists'][0]['assistsToDate']) + ") "
                     if len(goal['assists']) > 1:
-                        resp += ", "  +  goal['assists'][1]['firstName'] + " " + goal['assists'][1]['lastName'] + " (" + str(goal['assists'][1]['assistsToDate']) + ") "
+                        resp += ", "  +  goal['assists'][1]['firstName']['default'] + " " + goal['assists'][1]['lastName']['default'] + " (" + str(goal['assists'][1]['assistsToDate']) + ") "
             
 
         except:
