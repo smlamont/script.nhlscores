@@ -139,7 +139,7 @@ class Scores:
                 # thi will always be 25 minlate, for 1st interation.  self.DAILY_CHECK_TIMER_PERIOD
                 if sleep_seconds < self.DAILY_CHECK_TIMER_PERIOD:
                     self.toggle_service_on()
-                    self.notify(self.local_string(30300), self.local_string(30350))
+                    #self.notify(self.local_string(30300), self.local_string(30350))
                     #In above, if waiting, this still executes (probably because in debug, the libs work differently)
                     self.logger(f"running: {self.scoring_updates_on()}")
 
@@ -157,13 +157,13 @@ class Scores:
 
             if (self.test):
                 break;
-            self.logger(f"sleep for: {self.MAX_SLEEP_TIME}")
-            self.monitor_waitForAbort(self.MAX_SLEEP_TIME)
+            #self.logger(f"sleep for: {self.MAX_SLEEP_TIME}")
+            self.monitor_waitForAbort(self.DAILY_CHECK_TIMER_PERIOD)
 
     def testGetScores(self):
         json = self.get_scoreboard()
         self.new_game_stats.clear()
-        self.logger("Games: " + str(len(json['games'])))
+        #self.logger("Games: " + str(len(json['games'])))
         for game in json['games']:
             self.get_new_stats(game)
 
@@ -179,7 +179,7 @@ class Scores:
         ##-if self.scoring_updates_on():
             json = self.get_scoreboard()
             self.new_game_stats.clear()
-            self.logger("Games: " + str(len(json['games'])))
+            #self.logger("Games: " + str(len(json['games'])))
             for game in json['games']:
                 # Break out of loop if updates disabled
                 if not self.scoring_updates_on(): break
@@ -306,8 +306,8 @@ class Scores:
         title = None
         message = None
         img = self.nhl_logo
-        self.logger("~"+str(old_item))
-        self.logger("-"+str(new_item))
+        #self.logger("~"+str(old_item))
+        #self.logger("-"+str(new_item))
  
         if 'final' in new_item['gameState'].lower() and 'final' not in old_item['gameState'].lower():
             title, message, img = self.final_score_message(new_item)
@@ -475,8 +475,11 @@ class Scores:
                 resp = "...goal not reported yet..."            
             elif lastGoalPeriodArrIdx > -1:
                 if len(last_json['summary']['scoring'][lastGoalPeriodArrIdx]) > 0:
+                    mod = ""
                     goal = last_json['summary']['scoring'][lastGoalPeriodArrIdx]['goals'][-1]
-                    resp = "(" + goal['strength'] + ") " + goal['firstName']['default'] + " " + goal['lastName']['default'] + " (" + str(goal['goalsToDate']) + ") "
+                    if goal['goalModifier'] != 'none':
+                        mod = goal['goalModifier']  + " "
+                    resp = "(" + goal['strength'] + mod + ") " + goal['firstName']['default'] + " " + goal['lastName']['default'] + " (" + str(goal['goalsToDate']) + ") "
                     if len(goal['assists']) > 0:
                         resp += "from "  +  goal['assists'][0]['firstName']['default'] + " " + goal['assists'][0]['lastName']['default'] + " (" + str(goal['assists'][0]['assistsToDate']) + ") "
                     if len(goal['assists']) > 1:
